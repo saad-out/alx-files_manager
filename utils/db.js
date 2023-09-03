@@ -38,6 +38,26 @@ class DBClient {
       return null;
     }
   }
+
+  async filterBy(collection, query) {
+    try {
+      const result = await this.db.collection(collection).findOne(query);
+      return result;
+    } catch (err) {
+      console.log(err);
+      return null;
+    }
+  }
+
+  async insertInto(collection, obj) {
+    try {
+      const user = await this.db.collection(collection).insertOne(obj);
+      return user;
+    } catch (err) {
+      console.log(err);
+      return null;
+    }
+  }
 }
 
 const dbClient = new DBClient();
