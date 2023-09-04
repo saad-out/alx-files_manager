@@ -2,6 +2,7 @@ import { ObjectID } from 'mongodb';
 import { v4 as uuidv4 } from 'uuid';
 import dbClient from '../utils/db';
 import redisClient from '../utils/redis';
+// eslint-disable-next-line import/named
 import { getAuthorizationHeader, extractCredentials, sha1Hash } from '../utils/auth';
 
 class AuthController {

@@ -1,6 +1,7 @@
 import { ObjectID } from 'mongodb';
 import dbClient from '../utils/db';
 import redisClient from '../utils/redis';
+// eslint-disable-next-line import/named
 import { sha1Hash } from '../utils/auth';
 
 class UsersController {
