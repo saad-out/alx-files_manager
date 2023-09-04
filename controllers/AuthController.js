@@ -2,13 +2,20 @@ import { ObjectID } from 'mongodb';
 import { v4 as uuidv4 } from 'uuid';
 import dbClient from '../utils/db';
 import redisClient from '../utils/redis';
-import { sha1Hash } from './UsersController';
+import { getAuthorizationHeader, extractCredentials, sha1Hash } from '../utils/auth';
 
 class AuthController {
   static async getConnect(req, res) {
-    const authHeader = req.headers.authorization.split(' ')[1];
-    const auth = Buffer.from(authHeader, 'base64').toString('utf-8');
-    const [email, password] = auth.split(':');
+    const decodedAuthHeader = getAuthorizationHeader(req);
+    if (!decodedAuthHeader) {
+      res.statusCode = 401;
+      return res.send({ error: 'Unauthorized' });
+    }
+    const [email, password] = extractCredentials(decodedAuthHeader);
+    if (!email || !password) {
+      res.statusCode = 401;
+      return res.send({ error: 'Unauthorized' });
+    }
     const user = await dbClient.filterBy('users', { email });
     if (user === null) {
       res.statusCode = 401;
@@ -27,7 +34,8 @@ class AuthController {
   }
 
   static async getDisconnect(req, res) {
-    const token = req.headers['X-token'];
+    const token = req.headers['x-token'];
+    console.log(`token in getDisconnect is: ${token}`);
     const strId = await redisClient.get(`auth_${token}`);
     const id = new ObjectID(strId);
     if (id === null) {

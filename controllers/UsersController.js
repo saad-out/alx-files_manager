@@ -1,13 +1,7 @@
-import crypto from 'crypto';
 import { ObjectID } from 'mongodb';
 import dbClient from '../utils/db';
 import redisClient from '../utils/redis';
-
-export function sha1Hash(password) {
-  const sha1 = crypto.createHash('sha1');
-  sha1.update(password, 'utf-8');
-  return sha1.digest('hex');
-}
+import { sha1Hash } from '../utils/auth';
 
 class UsersController {
   static async postNew(req, res) {
@@ -34,7 +28,9 @@ class UsersController {
   }
 
   static async getMe(req, res) {
+    console.log(JSON.stringify(req.headers));
     const token = req.headers['x-token'];
+    console.log(`token in getMe is: ${token}`);
     const strId = await redisClient.get(`auth_${token}`);
     const id = new ObjectID(strId);
     if (id === null) {
