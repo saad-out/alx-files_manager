@@ -28,9 +28,7 @@ class UsersController {
   }
 
   static async getMe(req, res) {
-    console.log(JSON.stringify(req.headers));
     const token = req.headers['x-token'];
-    console.log(`token in getMe is: ${token}`);
     const strId = await redisClient.get(`auth_${token}`);
     const id = new ObjectID(strId);
     if (id === null) {
