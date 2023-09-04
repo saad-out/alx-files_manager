@@ -35,6 +35,7 @@ class AuthController {
 
   static async getDisconnect(req, res) {
     const token = req.headers['x-token'];
+    const strId = await redisClient.get(`auth_${token}`);
     const id = new ObjectID(strId);
     if (id === null) {
       res.statusCode = 401;
