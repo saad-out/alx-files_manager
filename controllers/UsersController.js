@@ -1,7 +1,9 @@
 import crypto from 'crypto';
+import { ObjectID } from 'mongodb';
 import dbClient from '../utils/db';
+import redisClient from '../utils/redis';
 
-function sha1Hash(password) {
+export function sha1Hash(password) {
   const sha1 = crypto.createHash('sha1');
   sha1.update(password, 'utf-8');
   return sha1.digest('hex');
@@ -29,6 +31,23 @@ class UsersController {
     }
     res.statusCode = 400;
     return res.send({ error: 'Error occured!' });
+  }
+
+  static async getMe(req, res) {
+    const token = req.headers['x-token'];
+    const strId = await redisClient.get(`auth_${token}`);
+    const id = new ObjectID(strId);
+    if (id === null) {
+      res.statusCode = 401;
+      return res.send({ error: 'Unauthorized' });
+    }
+    const user = await dbClient.filterBy('users', { _id: id });
+    if (user === null) {
+      res.statusCode = 401;
+      return res.send({ error: 'Unauthorized' });
+    }
+    res.statusCode = 200;
+    return res.send({ id: user._id, email: user.email });
   }
 }
 
