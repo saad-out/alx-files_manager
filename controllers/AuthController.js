@@ -1,18 +1,16 @@
-import { ObjectID } from 'mongodb';
 import { v4 as uuidv4 } from 'uuid';
 import dbClient from '../utils/db';
 import redisClient from '../utils/redis';
-// eslint-disable-next-line import/named
-import { getAuthorizationHeader, extractCredentials, sha1Hash } from '../utils/auth';
+import * as auth from '../utils/auth';
 
 class AuthController {
   static async getConnect(req, res) {
-    const decodedAuthHeader = getAuthorizationHeader(req);
+    const decodedAuthHeader = auth.getAuthorizationHeader(req);
     if (!decodedAuthHeader) {
       res.statusCode = 401;
       return res.send({ error: 'Unauthorized' });
     }
-    const [email, password] = extractCredentials(decodedAuthHeader);
+    const [email, password] = auth.extractCredentials(decodedAuthHeader);
     if (!email || !password) {
       res.statusCode = 401;
       return res.send({ error: 'Unauthorized' });
@@ -22,7 +20,7 @@ class AuthController {
       res.statusCode = 401;
       return res.send({ error: 'Unauthorized' });
     }
-    const passwd = sha1Hash(password);
+    const passwd = auth.sha1Hash(password);
     if (user.password !== passwd) {
       res.statusCode = 401;
       return res.send({ error: 'Unauthorized' });
@@ -35,14 +33,7 @@ class AuthController {
   }
 
   static async getDisconnect(req, res) {
-    const token = req.headers['x-token'];
-    const strId = await redisClient.get(`auth_${token}`);
-    const id = new ObjectID(strId);
-    if (id === null) {
-      res.statusCode = 401;
-      return res.send({ error: 'Unauthorized' });
-    }
-    const user = await dbClient.filterBy('users', { _id: id });
+    const { user, token } = await auth.getUserByToken(req);
     if (user === null) {
       res.statusCode = 401;
       return res.send({ error: 'Unauthorized' });

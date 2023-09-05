@@ -1,8 +1,6 @@
-import { ObjectID } from 'mongodb';
 import dbClient from '../utils/db';
-import redisClient from '../utils/redis';
 // eslint-disable-next-line import/named
-import { sha1Hash } from '../utils/auth';
+import { sha1Hash, getUserByToken } from '../utils/auth';
 
 class UsersController {
   static async postNew(req, res) {
@@ -29,14 +27,7 @@ class UsersController {
   }
 
   static async getMe(req, res) {
-    const token = req.headers['x-token'];
-    const strId = await redisClient.get(`auth_${token}`);
-    const id = new ObjectID(strId);
-    if (id === null) {
-      res.statusCode = 401;
-      return res.send({ error: 'Unauthorized' });
-    }
-    const user = await dbClient.filterBy('users', { _id: id });
+    const { user } = await getUserByToken(req);
     if (user === null) {
       res.statusCode = 401;
       return res.send({ error: 'Unauthorized' });

@@ -1,4 +1,7 @@
 import crypto from 'crypto';
+import { ObjectID } from 'mongodb';
+import redisClient from './redis';
+import dbClient from './db';
 
 const AuthScheme = 'Basic ';
 
@@ -22,10 +25,26 @@ const extractCredentials = (decodedAuthHeader) => {
   return [email, password];
 };
 
+const getUserByToken = async (req) => {
+  const token = req.headers['x-token'];
+  const strId = await redisClient.get(`auth_${token}`);
+  const id = new ObjectID(strId);
+  if (id === null) {
+    return { user: null, token: null };
+  }
+  const user = await dbClient.filterBy('users', { _id: id });
+  return { user, token };
+};
+
 const sha1Hash = (password) => {
   const sha1 = crypto.createHash('sha1');
   sha1.update(password, 'utf-8');
   return sha1.digest('hex');
 };
 
-module.exports = { getAuthorizationHeader, extractCredentials, sha1Hash };
+module.exports = {
+  getAuthorizationHeader,
+  extractCredentials,
+  sha1Hash,
+  getUserByToken,
+};
