@@ -34,7 +34,7 @@ class AuthController {
 
   static async getDisconnect(req, res) {
     const { user, token } = await auth.getUserByToken(req);
-    if (user === null) {
+    if (!user) {
       res.statusCode = 401;
       return res.send({ error: 'Unauthorized' });
     }
