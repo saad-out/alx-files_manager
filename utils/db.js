@@ -51,8 +51,8 @@ class DBClient {
 
   async insertInto(collection, obj) {
     try {
-      const newObj = await this.db.collection(collection).insertOne(obj);
-      return newObj;
+      const user = await this.db.collection(collection).insertOne(obj);
+      return user;
     } catch (err) {
       console.log(err);
       return null;
