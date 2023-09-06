@@ -58,6 +58,16 @@ class DBClient {
       return null;
     }
   }
+
+  async updateOne(collection, query, update) {
+    try {
+      const res = await this.db.collection(collection).updateOne(query, { $set: update });
+      return res;
+    } catch (err) {
+      console.log(err);
+      return null;
+    }
+  }
 }
 
 const dbClient = new DBClient();
