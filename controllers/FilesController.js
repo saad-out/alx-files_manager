@@ -63,22 +63,25 @@ class FilesController {
   }
 
   static async getIndex(req, res) {
-    const user = await getUserByToken(req);
-    console.log(user);
-    if (user === null) {
-      res.statusCode = 401;
-      return res.send({ error: 'Unauthorized' });
-    }
+    const { user } = await getUserByToken(req);
+    if (!user) return res.status(401).send({ error: 'Unauthorized' });
     const parentId = req.query.parentId || 0;
     const page = req.query.page || 0;
     const limit = 20;
-    const skip = page * limit;
-    const docs = await dbClient.db.collection('files').aggregate([
-      { $match: { parentId } },
-      { $skip: skip },
+    const aggregate = [
+      { $skip: page * limit },
       { $limit: limit },
-    ]);
-    return res.status(200).send(await docs.toArray());
+    ];
+    if (parentId !== 0) aggregate[2] = { $match: { parentId } };
+    const docs = await dbClient.db.collection('files').aggregate(aggregate).toArray();
+    return res.status(200).send(
+      docs.map((doc) => {
+        const newDoc = { ...doc, id: doc._id };
+        delete newDoc._id;
+        delete newDoc.localPath;
+        return newDoc;
+      }),
+    );
   }
 
   static async putPublish(req, res) {
