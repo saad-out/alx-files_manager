@@ -85,34 +85,22 @@ class FilesController {
   }
 
   static async putPublish(req, res) {
-    const obj = await getUserByToken(req);
-    const id = new ObjectID(req.params.id);
-    if (obj === null) {
-      res.statusCode = 401;
-      return res.send({ error: 'Unauthorized' });
-    }
-    const file = await dbClient.filterBy('files', { userId: obj.user._id, _id: id });
-    if (file === null) {
-      res.statusCode = 404;
-      return res.send({ error: 'Not found' });
-    }
+    const { user } = await getUserByToken(req);
+    if (!user) return res.status(401).send({ error: 'Unauthorized' });
+    const fileId = new ObjectID(req.params.id);
+    const file = await dbClient.filterBy('files', { userId: user._id, _id: fileId });
+    if (!file) return res.status(404).send({ error: 'Not found' });
     file.isPublic = true;
     res.statusCode = 200;
     return res.send(file);
   }
 
   static async putUnpublish(req, res) {
-    const obj = await getUserByToken(req);
-    const id = new ObjectID(req.params.id);
-    if (obj === null) {
-      res.statusCode = 401;
-      return res.send({ error: 'Unauthorized' });
-    }
-    const file = await dbClient.filterBy('files', { userId: obj.user._id, _id: id });
-    if (file === null) {
-      res.statusCode = 404;
-      return res.send({ error: 'Not found' });
-    }
+    const { user } = await getUserByToken(req);
+    if (!user) return res.status(401).send({ error: 'Unauthorized' });
+    const fileId = new ObjectID(req.params.id);
+    const file = await dbClient.filterBy('files', { userId: user._id, _id: fileId });
+    if (!file) return res.status(404).send({ error: 'Not found' });
     file.isPublic = false;
     res.statusCode = 200;
     return res.send(file);
