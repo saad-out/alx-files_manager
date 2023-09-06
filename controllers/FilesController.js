@@ -1,8 +1,12 @@
+import fs from 'fs';
+import { v4 as uuidv4 } from 'uuid';
+import { ObjectID } from 'mongodb';
 import dbClient from '../utils/db';
 // eslint-disable-next-line import/named
 import { getUserByToken } from '../utils/auth';
 
 const acceptedTypes = ['folder', 'file', 'image'];
+const folderPath = process.env.FOLDER_PATH || '/tmp/files_manager';
 
 class FilesController {
   static async postUpload(req, res) {
@@ -11,14 +15,14 @@ class FilesController {
     const {
       name, type, parentId = 0, isPublic = false, data,
     } = req.body;
-    console.log(`name: ${name}, type: ${type}, parentId: ${parentId}, isPublic: ${isPublic}, data: ${data}`);
 
     // Validate parameters
     if (!name) return res.status(400).send({ error: 'Missing name' });
     if (!type || !acceptedTypes.includes(type)) return res.status(400).send({ error: 'Missing type' });
     if (!data && type !== 'folder') return res.status(400).send({ error: 'Missing data' });
     if (parentId !== 0) {
-      const parent = await dbClient.filterBy('files', { _id: parentId });
+      const parentIdObj = new ObjectID(parentId);
+      const parent = await dbClient.filterBy('files', { _id: parentIdObj });
       if (!parent) return res.status(400).send({ error: 'Parent not found' });
       if (parent.type !== 'folder') return res.status(400).send({ error: 'Parent is not a folder' });
     }
@@ -37,8 +41,14 @@ class FilesController {
       delete file._id;
       return res.status(201).send(file);
     }
-
-    return res.status(200).send({ status: 'OK' });
+    file.localPath = `${folderPath}/${uuidv4()}`;
+    fs.mkdirSync(folderPath, { recursive: true });
+    fs.writeFileSync(file.localPath, Buffer.from(data, 'base64'));
+    const result = await dbClient.insertInto('files', file);
+    const newFile = { ...result.ops[0], id: result.insertedId };
+    delete newFile._id;
+    delete newFile.localPath;
+    return res.status(201).send(newFile);
   }
 }
 
