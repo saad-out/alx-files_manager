@@ -52,17 +52,13 @@ class FilesController {
   }
 
   static async getShow(req, res) {
-    const obj = await getUserByToken(req);
-    const id = new ObjectID(req.params.id);
-    if (obj === null) {
-      res.statusCode = 401;
-      return res.send({ error: 'Unauthorized' });
-    }
-    const file = await dbClient.filterBy('files', { _id: id, userId: obj.user._id });
-    if (file === null) {
-      res.statusCode = 404;
-      return res.send({ error: 'Not found' });
-    }
+    const { user } = await getUserByToken(req);
+    if (!user) return res.status(401).send({ error: 'Unauthorized' });
+    const fileId = new ObjectID(req.params.id);
+    const file = await dbClient.filterBy('files', { _id: fileId, userId: user._id });
+    if (!file) return res.status(404).send({ error: 'Not found' });
+    file.id = file._id;
+    delete file._id;
     return res.status(200).send(file);
   }
 
