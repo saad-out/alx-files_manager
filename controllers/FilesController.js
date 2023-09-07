@@ -1,5 +1,7 @@
 import Bull from 'bull';
 import fs from 'fs';
+import mime from 'mime-types';
+import { v4 as uuidv4 } from 'uuid';
 import { ObjectID } from 'mongodb';
 import { v4 as uuidv4 } from 'uuid';
 import dbClient from '../utils/db';
@@ -57,70 +59,83 @@ class FilesController {
   }
 
   static async getShow(req, res) {
-    const obj = await getUserByToken(req);
-    const id = new ObjectID(req.params.id);
-    if (obj === null) {
-      res.statusCode = 401;
-      return res.send({ error: 'Unauthorized' });
-    }
-    const file = await dbClient.filterBy('files', { _id: id, userId: obj.user._id });
-    if (file === null) {
-      res.statusCode = 404;
-      return res.send({ error: 'Not found' });
-    }
+    const { user } = await getUserByToken(req);
+    if (!user) return res.status(401).send({ error: 'Unauthorized' });
+    const fileId = new ObjectID(req.params.id);
+    const file = await dbClient.filterBy('files', { _id: fileId, userId: user._id });
+    if (!file) return res.status(404).send({ error: 'Not found' });
+    file.id = file._id;
+    delete file._id;
     return res.status(200).send(file);
   }
 
   static async getIndex(req, res) {
-    const user = await getUserByToken(req);
-    if (user === null) {
-      res.statusCode = 401;
-      return res.send({ error: 'Unauthorized' });
-    }
+    const { user } = await getUserByToken(req);
+    if (!user) return res.status(401).send({ error: 'Unauthorized' });
     const parentId = req.query.parentId || 0;
     const page = req.query.page || 0;
     const limit = 20;
-    const skip = page * limit;
-    const docs = await dbClient.db.collection('files').aggregate([
-      { $match: { parentId } },
-      { $skip: skip },
+    const aggregate = [
+      { $skip: page * limit },
       { $limit: limit },
-    ]);
-    return res.status(200).send(await docs.toArray());
+    ];
+    if (parentId !== 0) aggregate[2] = { $match: { parentId } };
+    const docs = await dbClient.db.collection('files').aggregate(aggregate).toArray();
+    return res.status(200).send(
+      docs.map((doc) => {
+        const newDoc = { ...doc, id: doc._id };
+        delete newDoc._id;
+        delete newDoc.localPath;
+        return newDoc;
+      }),
+    );
   }
 
   static async putPublish(req, res) {
-    const obj = await getUserByToken(req);
-    const id = new ObjectID(req.params.id);
-    if (obj === null) {
-      res.statusCode = 401;
-      return res.send({ error: 'Unauthorized' });
-    }
-    const file = await dbClient.filterBy('files', { userId: obj.user._id, _id: id });
-    if (file === null) {
-      res.statusCode = 404;
-      return res.send({ error: 'Not found' });
-    }
+    const { user } = await getUserByToken(req);
+    if (!user) return res.status(401).send({ error: 'Unauthorized' });
+    const fileId = new ObjectID(req.params.id);
+    const file = await dbClient.filterBy('files', { userId: user._id, _id: fileId });
+    if (!file) return res.status(404).send({ error: 'Not found' });
     file.isPublic = true;
+    // save to db
+    await dbClient.updateOne('files', { _id: fileId }, { isPublic: true });
     res.statusCode = 200;
     return res.send(file);
   }
 
   static async putUnpublish(req, res) {
-    const obj = await getUserByToken(req);
-    const id = new ObjectID(req.params.id);
-    if (obj === null) {
-      res.statusCode = 401;
-      return res.send({ error: 'Unauthorized' });
-    }
-    const file = await dbClient.filterBy('files', { userId: obj.user._id, _id: id });
-    if (file === null) {
-      res.statusCode = 404;
-      return res.send({ error: 'Not found' });
-    }
+    const { user } = await getUserByToken(req);
+    if (!user) return res.status(401).send({ error: 'Unauthorized' });
+    const fileId = new ObjectID(req.params.id);
+    const file = await dbClient.filterBy('files', { userId: user._id, _id: fileId });
+    if (!file) return res.status(404).send({ error: 'Not found' });
     file.isPublic = false;
+    // save to db
+    await dbClient.updateOne('files', { _id: fileId }, { isPublic: false });
     res.statusCode = 200;
     return res.send(file);
+  }
+
+  static async getFile(req, res) {
+    const fileId = new ObjectID(req.params.id);
+    const file = await dbClient.filterBy('files', { _id: fileId });
+    if (!file) return res.status(404).send({ error: 'Not found' });
+    if (!file.isPublic) {
+      const { user } = await getUserByToken(req);
+      if (!user || user._id.toString() !== file.userId.toString()) {
+        return res.status(404).send({ error: 'Not found' });
+      }
+    }
+    if (file.type === 'folder') return res.status(400).send({ error: 'A folder doesn\'t have content' });
+    try {
+      const data = fs.readFileSync(file.localPath);
+      const mimetype = mime.lookup(file.name);
+      if (mimetype) res.setHeader('Content-Type', mimetype);
+      return res.status(200).send(data);
+    } catch (err) {
+      return res.status(404).send({ error: 'Not found' });
+    }
   }
 }
 
