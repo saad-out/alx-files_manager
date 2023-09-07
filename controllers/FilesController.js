@@ -1,6 +1,7 @@
+import Bull from 'bull';
 import fs from 'fs';
-import { v4 as uuidv4 } from 'uuid';
 import { ObjectID } from 'mongodb';
+import { v4 as uuidv4 } from 'uuid';
 import dbClient from '../utils/db';
 // eslint-disable-next-line import/named
 import { getUserByToken } from '../utils/auth';
@@ -45,6 +46,10 @@ class FilesController {
     fs.mkdirSync(folderPath, { recursive: true });
     fs.writeFileSync(file.localPath, Buffer.from(data, 'base64'));
     const result = await dbClient.insertInto('files', file);
+    if (type === 'image') {
+      const fileQueue = new Bull('fileQueue');
+      fileQueue.add({ userId: user._id, fileId: result.insertedId });
+    }
     const newFile = { ...result.ops[0], id: result.insertedId };
     delete newFile._id;
     delete newFile.localPath;
@@ -68,7 +73,6 @@ class FilesController {
 
   static async getIndex(req, res) {
     const user = await getUserByToken(req);
-    console.log(user);
     if (user === null) {
       res.statusCode = 401;
       return res.send({ error: 'Unauthorized' });
